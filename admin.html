@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>仓库管理 · Mio水汪汪</title>
+<style>
+body{font:15px/1.6 system-ui,-apple-system,sans-serif;max-width:720px;margin:0 auto;padding:16px;color:#111;background:#fff}
+h2{font-size:20px;margin:12px 0}
+.w{border-bottom:1px solid #e5e5e5;padding:12px 0}
+.h{opacity:.5}
+button{margin:6px 6px 0 0;padding:6px 12px;border:1px solid #ddd;border-radius:8px;background:#f7f7f7;cursor:pointer}
+small{color:#777}
+#tip{color:#777;font-size:13px}
+</style>
+</head>
+<body>
+<h2>仓库管理</h2>
+<p id="tip">输入管理密钥后加载列表。下架 = 从广场隐藏但保留数据；删除 = 永久删除。</p>
+<div id="o"></div>
+<script>
+const key = prompt('管理密钥') || '';
+const H = { 'X-Admin-Key': key };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+const o = document.getElementById('o');
+
+async function load() {
+  const r = await fetch('api/admin/list', { headers: H });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { o.textContent = j.error || ('服务器返回 ' + r.status); return; }
+  o.innerHTML = j.works.map(w =>
+    '<div class="w' + (w.hidden ? ' h' : '') + '">' +
+    '<b>' + esc(w.title) + '</b> <small>' + esc(w.author) + ' · ' + esc(w.cat) + ' · 举报 ' + w.reports.length + (w.hidden ? ' · 已隐藏' : '') + '</small><br>' +
+    '<small>' + esc(w.reports.map(r => r.reason).filter(Boolean).join(' / ')) + '</small><br>' +
+    (w.hidden
+      ? '<button data-act="restore" data-id="' + w.id + '">恢复</button>'
+      : '<button data-act="hide" data-id="' + w.id + '">下架</button>') +
+    '<button data-act="del" data-id="' + w.id + '">删除</button>' +
+    '</div>'
+  ).join('') || '空';
+}
+
+o.addEventListener('click', async e => {
+  const b = e.target.closest('button[data-act]');
+  if (!b) return;
+  const id = b.dataset.id, act = b.dataset.act;
+  if (act === 'del') {
+    if (!confirm('永久删除？')) return;
+    await fetch('api/works/' + id, { method: 'DELETE', headers: H });
+  } else {
+    await fetch('api/admin/' + id + '/' + act, { method: 'POST', headers: H });
+  }
+  load();
+});
+
+load();
+</script>
+</body>
+</html>
